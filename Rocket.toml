@@ -1,0 +1,10 @@
+[default]
+address = "0.0.0.0"
+port = 8001
+key_size_hex = 64
+
+[debug]
+db_path = "/tmp/zbc-oracle-db-contents"
+
+[release]
+db_path = "/var/zbc-oracle-db-contents"
