@@ -27,9 +27,12 @@ fn rocket() -> _ {
 
 #[cfg(test)]
 mod test {
+    use crate::routes::Require;
+
     use super::rocket;
     use rocket::http::{ContentType, Status};
     use rocket::local::blocking::Client;
+    use serde_json;
     use std::fs::remove_dir_all;
 
     fn clean_db() {
@@ -94,5 +97,10 @@ mod test {
 
         let response = client.get(uri).dispatch();
         assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.content_type(), Some(ContentType::JSON));
+        let body = response.into_string().expect("body");
+        let require: Require = serde_json::from_str(&body).expect("valid json");
+        assert_eq!(require.value, true);
+        assert_eq!(require.hex_signature, "bbbb");
     }
 }

@@ -22,8 +22,8 @@ fn bincode_deserialize<'a, T: Deserialize<'a>>(input: &'a [u8]) -> Result<T, Sta
 
 #[derive(Serialize, Deserialize)]
 pub struct Require {
-    value: bool,
-    hex_signature: String,
+    pub value: bool,
+    pub hex_signature: String,
 }
 
 #[derive(Serialize, Deserialize)]
