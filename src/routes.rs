@@ -1,7 +1,12 @@
-use crate::app_state::*;
-use rocket::{http::Status, serde::json::Json, tokio::task::spawn_blocking, State};
+use crate::{config::*, db::*};
+use rocket::{
+    http::Status, request::FromParam, serde::json::Json, tokio::task::spawn_blocking, State,
+};
 use serde::{Deserialize, Serialize};
-use std::convert::{From, TryFrom};
+use std::{
+    convert::{From, TryFrom},
+    sync::Arc,
+};
 
 fn hex_decode(input: &str) -> Result<Vec<u8>, Status> {
     hex::decode(input).map_err(|_| Status::BadRequest)
@@ -13,13 +18,6 @@ fn bincode_serialize<T: Serialize>(value: &T) -> Result<Vec<u8>, Status> {
 
 fn bincode_deserialize<'a, T: Deserialize<'a>>(input: &'a [u8]) -> Result<T, Status> {
     bincode::deserialize(input).map_err(|_| Status::InternalServerError)
-}
-
-fn parse_key(key: &str, key_size_hex: u16) -> Result<Vec<u8>, Status> {
-    if key.len() != key_size_hex as usize {
-        return Err(Status::BadRequest);
-    }
-    hex_decode(key).map_err(|_| Status::BadRequest)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -55,16 +53,40 @@ impl From<StoredRequire> for Require {
     }
 }
 
+pub struct Key(Vec<u8>);
+
+#[rocket::async_trait]
+impl<'r> FromParam<'r> for Key {
+    type Error = &'r str;
+
+    fn from_param(key: &'r str) -> Result<Self, Self::Error> {
+        if key.len() != Config::HEX_KEY_SIZE {
+            return Err(key);
+        }
+        match hex_decode(key) {
+            Ok(key) => Ok(Key(key)),
+            _ => Err(key),
+        }
+    }
+}
+
+fn get_key(key: Option<Key>) -> Result<Vec<u8>, Status> {
+    match key {
+        Some(key) => Ok(key.0),
+        _ => Err(Status::BadRequest),
+    }
+}
+
 #[put("/require/<key>", data = "<require>")]
 pub async fn put_require(
-    state: &State<AppState>,
-    key: &str,
+    state: &State<Arc<dyn Database>>,
+    key: Option<Key>,
     require: Json<Require>,
 ) -> Result<(), Status> {
-    let key = parse_key(&key, state.config.key_size_hex)?;
+    let key = get_key(key)?;
     let stored_require = StoredRequire::try_from(require.0)?;
     let stored_require = bincode_serialize(&stored_require)?;
-    let db = state.inner().db.clone();
+    let db = state.inner().clone();
     spawn_blocking(move || db.put_require(&key, &stored_require))
         .await
         .map_err(|_| Status::ServiceUnavailable)?
@@ -73,9 +95,12 @@ pub async fn put_require(
 }
 
 #[get("/require/<key>")]
-pub async fn get_require<'a>(state: &State<AppState>, key: &str) -> Result<Json<Require>, Status> {
-    let key = parse_key(&key, state.config.key_size_hex)?;
-    let db = state.inner().db.clone();
+pub async fn get_require(
+    state: &State<Arc<dyn Database>>,
+    key: Option<Key>,
+) -> Result<Json<Require>, Status> {
+    let key = get_key(key)?;
+    let db = state.inner().clone();
     let value = spawn_blocking(move || db.get_require(&key))
         .await
         .map_err(|_| Status::ServiceUnavailable)?

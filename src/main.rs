@@ -1,19 +1,16 @@
 #[macro_use]
 extern crate rocket;
 
-use std::sync::Arc;
-
-mod routes;
-use routes::*;
-
-mod rocksdb_backend;
-use rocksdb_backend::*;
-
+mod config;
 mod db;
-use db::*;
+mod rocksdb_backend;
+mod routes;
 
-mod app_state;
-use app_state::*;
+use config::*;
+use db::*;
+use rocksdb_backend::*;
+use routes::*;
+use std::sync::Arc;
 
 #[launch]
 fn rocket() -> _ {
@@ -22,9 +19,8 @@ fn rocket() -> _ {
 
     let config: Config = figment.extract().expect("config");
     let db: Arc<dyn Database> = Arc::new(RocksDB::open(&config.db_path).expect("db open"));
-    let state = AppState { config, db };
 
     rocket
-        .manage(state)
+        .manage(db)
         .mount("/", routes![put_require, get_require])
 }
