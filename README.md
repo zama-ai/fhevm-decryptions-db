@@ -56,6 +56,9 @@ It is expected that the oracle generates an unique key for a particular require.
 ## Note on Signature
 The DB doesn't impose anything on the signature field other than it being valid base64. It is up to the blockchain protocol to decide what piece of data is signed. For example, one might do `sign(hash(require_ciphertext) || value)`.
 
+## Note on RocksDB
+We use RocksDB as an underlying key-value store. We've chosen it, because it is battle-tested, performant, in-process, tweakable and supports concurrent calls from multiple threads. If needed, it can easily be replaced with another store.
+
 ## Build and Run
 ```bash
 cargo build
