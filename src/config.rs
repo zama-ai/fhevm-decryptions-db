@@ -7,5 +7,6 @@ pub struct Config {
 }
 
 impl Config {
+    /// Size of a hex-encoded key. For actual byte size, divide by 2.
     pub const HEX_KEY_SIZE: usize = 64;
 }

@@ -12,8 +12,17 @@ use rocksdb_store::*;
 use routes::*;
 use std::sync::Arc;
 
+/// Builds a rocket instance with relevant configuration options.
+pub fn build_and_configure_rocket() -> Rocket<Build> {
+    let rocket = build_rocket();
+    configure_rocket(rocket)
+}
+
 pub fn build_rocket() -> Rocket<Build> {
-    let rocket = rocket::build();
+    rocket::build()
+}
+
+pub fn configure_rocket(rocket: Rocket<Build>) -> Rocket<Build> {
     let figment = rocket.figment();
 
     let config: Config = figment.extract().expect("config");

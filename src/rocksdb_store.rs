@@ -2,6 +2,10 @@ use std::error::Error;
 
 use rocksdb::{ColumnFamily, ColumnFamilyDescriptor, Options, DB};
 
+/// A wrapper around RocksDB.
+///
+/// Supports put and get operations only that can be called concurrently from multiple threads.
+/// Stores data in a dedicated column family.
 pub struct RocksDBStore {
     db: DB,
 }

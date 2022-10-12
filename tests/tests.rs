@@ -14,6 +14,13 @@ fn get_invalid_route() {
 }
 
 #[test]
+fn put_invalid_route() {
+    let client = setup();
+    let response = client.put("/xyz").dispatch();
+    assert_eq!(response.status(), Status::NotFound);
+}
+
+#[test]
 fn get_invalid_key_size() {
     let client = setup();
     let response = client.get("/require/ab").dispatch();

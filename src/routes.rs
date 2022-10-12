@@ -24,12 +24,14 @@ fn bincode_deserialize<'a, T: Deserialize<'a>>(input: &'a [u8]) -> Result<T, Sta
     bincode::deserialize(input).map_err(|_| Status::InternalServerError)
 }
 
+/// A require that is received/sent as JSON over HTTP.
 #[derive(Serialize, Deserialize)]
 pub struct Require {
     pub value: bool,
     pub signature: String,
 }
 
+/// A require that is stored in the DB.
 #[derive(Serialize, Deserialize)]
 struct StoredRequire {
     value: bool,
