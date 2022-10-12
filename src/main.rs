@@ -2,13 +2,11 @@
 extern crate rocket;
 
 mod config;
-mod db;
-mod rocksdb_backend;
+mod rocksdb_store;
 mod routes;
 
 use config::*;
-use db::*;
-use rocksdb_backend::*;
+use rocksdb_store::*;
 use routes::*;
 use std::sync::Arc;
 
@@ -18,7 +16,7 @@ fn rocket() -> _ {
     let figment = rocket.figment();
 
     let config: Config = figment.extract().expect("config");
-    let db: Arc<dyn Database> = Arc::new(RocksDB::open(&config.db_path).expect("db open"));
+    let db = Arc::new(RocksDBStore::open(&config.db_path).expect("db open"));
 
     rocket
         .manage(db)
@@ -43,7 +41,7 @@ mod test {
     }
 
     #[test]
-    fn invalid_get_route() {
+    fn get_invalid_route() {
         clean_db();
         let client = Client::tracked(rocket()).expect("valid rocket instance");
         let response = client.get("/xyz").dispatch();
@@ -51,25 +49,25 @@ mod test {
     }
 
     #[test]
-    fn invalid_get_key_size() {
+    fn get_invalid_key_size() {
         clean_db();
         let client = Client::tracked(rocket()).expect("valid rocket instance");
         let response = client.get("/require/ab").dispatch();
-        assert_eq!(response.status(), Status::BadRequest);
+        assert_eq!(response.status(), Status::NotFound);
     }
 
     #[test]
-    fn invalid_get_key_format() {
+    fn get_invalid_key_format() {
         clean_db();
         let client = Client::tracked(rocket()).expect("valid rocket instance");
         let response = client
             .get("/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaXaaaa")
             .dispatch();
-        assert_eq!(response.status(), Status::BadRequest);
+        assert_eq!(response.status(), Status::NotFound);
     }
 
     #[test]
-    fn unknown_get_key() {
+    fn get_unknown_key() {
         clean_db();
         let client = Client::tracked(rocket()).expect("valid rocket instance");
         let response = client
@@ -84,7 +82,7 @@ mod test {
         let client = Client::tracked(rocket()).expect("valid rocket instance");
         let json = r##"{
                 "value": true,
-                "hex_signature": "bbbb"
+                "signature": "YmJiYg=="
               }"##;
         let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
@@ -98,9 +96,143 @@ mod test {
         let response = client.get(uri).dispatch();
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(response.content_type(), Some(ContentType::JSON));
-        let body = response.into_string().expect("body");
-        let require: Require = serde_json::from_str(&body).expect("valid json");
-        assert_eq!(require.value, true);
-        assert_eq!(require.hex_signature, "bbbb");
+        let body = response.into_string();
+        assert!(body.is_some());
+        let body = body.unwrap();
+        let require: Result<Require, _> = serde_json::from_str(&body);
+        assert!(require.is_ok());
+        let require = require.unwrap();
+        assert!(require.value);
+        assert_eq!(require.signature, "YmJiYg==");
+    }
+
+    #[test]
+    fn put_updates() {
+        clean_db();
+        let client = Client::tracked(rocket()).expect("valid rocket instance");
+        let json = r##"{
+                "value": true,
+                "signature": "YmJiYg=="
+              }"##;
+        let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        let response = client
+            .put(uri)
+            .header(ContentType::JSON)
+            .body(json)
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let response = client.get(uri).dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.content_type(), Some(ContentType::JSON));
+        let body = response.into_string();
+        assert!(body.is_some());
+        let body = body.unwrap();
+        let require: Result<Require, _> = serde_json::from_str(&body);
+        assert!(require.is_ok());
+        let require = require.unwrap();
+        assert!(require.value);
+        assert_eq!(require.signature, "YmJiYg==");
+
+        let json = r##"{
+            "value": false,
+            "signature": "Yg=="
+          }"##;
+        let response = client
+            .put(uri)
+            .header(ContentType::JSON)
+            .body(json)
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let response = client.get(uri).dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.content_type(), Some(ContentType::JSON));
+        let body = response.into_string();
+        assert!(body.is_some());
+        let body = body.unwrap();
+        let require: Result<Require, _> = serde_json::from_str(&body);
+        assert!(require.is_ok());
+        let require = require.unwrap();
+        assert!(!require.value);
+        assert_eq!(require.signature, "Yg==");
+    }
+
+    #[test]
+    fn put_invalid_does_not_update() {
+        clean_db();
+        let client = Client::tracked(rocket()).expect("valid rocket instance");
+        let json = r##"{
+                "value": true,
+                "signature": "YmJiYg=="
+              }"##;
+        let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        let response = client
+            .put(uri)
+            .header(ContentType::JSON)
+            .body(json)
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let json = r##"{
+            "value" false,
+            "signature" "Yg=="
+          }"##;
+        let response = client
+            .put(uri)
+            .header(ContentType::JSON)
+            .body(json)
+            .dispatch();
+        assert_eq!(response.status(), Status::BadRequest);
+
+        let response = client.get(uri).dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.content_type(), Some(ContentType::JSON));
+        let body = response.into_string();
+        assert!(body.is_some());
+        let body = body.unwrap();
+        let require: Result<Require, _> = serde_json::from_str(&body);
+        assert!(require.is_ok());
+        let require = require.unwrap();
+        assert!(require.value);
+        assert_eq!(require.signature, "YmJiYg==");
+    }
+
+    #[test]
+    fn put_invalid_json() {
+        clean_db();
+        let client = Client::tracked(rocket()).expect("valid rocket instance");
+        let json = r##"{
+                "value" true
+                "signature": "mJiYg=="
+              }"##;
+        let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        let response = client
+            .put(uri)
+            .header(ContentType::JSON)
+            .body(json)
+            .dispatch();
+        assert_eq!(response.status(), Status::BadRequest);
+    }
+
+    #[test]
+    fn put_invalid_signature() {
+        clean_db();
+        let client = Client::tracked(rocket()).expect("valid rocket instance");
+        let json = r##"{
+                "value": true,
+                "signature": "YmJiY"
+              }"##;
+        let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        let response = client
+            .put(uri)
+            .header(ContentType::JSON)
+            .body(json)
+            .dispatch();
+        assert_eq!(response.status(), Status::BadRequest);
     }
 }

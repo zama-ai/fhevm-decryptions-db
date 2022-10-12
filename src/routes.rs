@@ -1,4 +1,4 @@
-use crate::{config::*, db::*};
+use crate::{config::*, rocksdb_store::RocksDBStore};
 use rocket::{
     http::Status, request::FromParam, serde::json::Json, tokio::task::spawn_blocking, State,
 };
@@ -12,6 +12,10 @@ fn hex_decode(input: &str) -> Result<Vec<u8>, Status> {
     hex::decode(input).map_err(|_| Status::BadRequest)
 }
 
+fn base64_decode(input: &str) -> Result<Vec<u8>, Status> {
+    base64::decode(input).map_err(|_| Status::BadRequest)
+}
+
 fn bincode_serialize<T: Serialize>(value: &T) -> Result<Vec<u8>, Status> {
     bincode::serialize(value).map_err(|_| Status::InternalServerError)
 }
@@ -23,7 +27,7 @@ fn bincode_deserialize<'a, T: Deserialize<'a>>(input: &'a [u8]) -> Result<T, Sta
 #[derive(Serialize, Deserialize)]
 pub struct Require {
     pub value: bool,
-    pub hex_signature: String,
+    pub signature: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -36,7 +40,7 @@ impl TryFrom<Require> for StoredRequire {
     type Error = Status;
 
     fn try_from(require: Require) -> Result<Self, Self::Error> {
-        let signature = hex_decode(&require.hex_signature)?;
+        let signature = base64_decode(&require.signature)?;
         Ok(StoredRequire {
             value: require.value,
             signature,
@@ -48,7 +52,7 @@ impl From<StoredRequire> for Require {
     fn from(stored_require: StoredRequire) -> Require {
         Require {
             value: stored_require.value,
-            hex_signature: hex::encode(stored_require.signature),
+            signature: base64::encode(stored_require.signature),
         }
     }
 }
@@ -70,24 +74,16 @@ impl<'r> FromParam<'r> for Key {
     }
 }
 
-fn get_key(key: Option<Key>) -> Result<Vec<u8>, Status> {
-    match key {
-        Some(key) => Ok(key.0),
-        _ => Err(Status::BadRequest),
-    }
-}
-
 #[put("/require/<key>", data = "<require>")]
 pub async fn put_require(
-    state: &State<Arc<dyn Database>>,
-    key: Option<Key>,
+    state: &State<Arc<RocksDBStore>>,
+    key: Key,
     require: Json<Require>,
 ) -> Result<(), Status> {
-    let key = get_key(key)?;
     let stored_require = StoredRequire::try_from(require.0)?;
     let stored_require = bincode_serialize(&stored_require)?;
     let db = state.inner().clone();
-    spawn_blocking(move || db.put_require(&key, &stored_require))
+    spawn_blocking(move || db.put_require(&key.0, &stored_require))
         .await
         .map_err(|_| Status::ServiceUnavailable)?
         .map_err(|_| Status::InternalServerError)?;
@@ -96,12 +92,11 @@ pub async fn put_require(
 
 #[get("/require/<key>")]
 pub async fn get_require(
-    state: &State<Arc<dyn Database>>,
-    key: Option<Key>,
+    state: &State<Arc<RocksDBStore>>,
+    key: Key,
 ) -> Result<Json<Require>, Status> {
-    let key = get_key(key)?;
     let db = state.inner().clone();
-    let value = spawn_blocking(move || db.get_require(&key))
+    let value = spawn_blocking(move || db.get_require(&key.0))
         .await
         .map_err(|_| Status::ServiceUnavailable)?
         .map_err(|_| Status::InternalServerError)?;
