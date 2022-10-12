@@ -53,6 +53,9 @@ The resulting response has the same JSON format as for HTTP PUT:
 ## Note on Determinism
 It is expected that the oracle generates an unique key for a particular require. For example, the key could be the hash of the require's ciphertext. Based on that, the DB will overwrite a require value for an existing key, expecting that the "new" value is the same as the previous one. That allows the DB to not check the key for existence on every write. Though it is not expected to happen often, it might happen if, for example, the oracle crashes during execution.
 
+## Note on Signature
+The DB doesn't impose anything on the signature field other than it being valid base64. It is up to the blockchain protocol to decide what piece of data is signed. For example, one might do `sign(hash(require_ciphertext) || value)`.
+
 ## Build and Run
 ```bash
 cargo build
