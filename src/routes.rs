@@ -1,6 +1,13 @@
 use crate::{config::*, rocksdb_store::RocksDBStore};
 use rocket::{
-    http::Status, request::FromParam, serde::json::Json, tokio::task::spawn_blocking, State,
+    http::Status,
+    request::FromParam,
+    serde::json::Json,
+    tokio::{
+        task::spawn_blocking,
+        time::{sleep, Duration},
+    },
+    State,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -94,18 +101,26 @@ pub async fn put_require(
 
 #[get("/require/<key>")]
 pub async fn get_require(
+    config: &State<Config>,
     state: &State<Arc<RocksDBStore>>,
     key: Key,
 ) -> Result<Json<Require>, Status> {
-    let db = state.inner().clone();
-    let value = spawn_blocking(move || db.get_require(&key.0))
-        .await
-        .map_err(|_| Status::ServiceUnavailable)?
-        .map_err(|_| Status::InternalServerError)?;
-    if let Some(value) = value {
-        let stored_require: StoredRequire = bincode_deserialize(&value)?;
-        Ok(Json(Require::from(stored_require)))
-    } else {
-        Err(Status::NotFound)
+    // 0 retries means 1 attempt and 0 retries.
+    let mut i = config.get_retry_count + 1;
+    while i > 0 {
+        let key = key.0.clone();
+        let db = state.inner().clone();
+        let value = spawn_blocking(move || db.get_require(&key))
+            .await
+            .map_err(|_| Status::ServiceUnavailable)?
+            .map_err(|_| Status::InternalServerError)?;
+        if let Some(value) = value {
+            let stored_require: StoredRequire = bincode_deserialize(&value)?;
+            return Ok(Json(Require::from(stored_require)));
+        } else {
+            sleep(Duration::from_millis(config.get_sleep_period_ms)).await;
+        }
+        i = i - 1;
     }
+    Err(Status::NotFound)
 }

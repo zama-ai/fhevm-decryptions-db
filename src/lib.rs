@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
-use rocket::{Build, Rocket};
+use rocket::{Build, Rocket, fairing::AdHoc};
 
 pub mod config;
 pub mod rocksdb_store;
@@ -31,4 +31,5 @@ pub fn configure_rocket(rocket: Rocket<Build>) -> Rocket<Build> {
     rocket
         .manage(db)
         .mount("/", routes![put_require, get_require])
+        .attach(AdHoc::config::<Config>())
 }
