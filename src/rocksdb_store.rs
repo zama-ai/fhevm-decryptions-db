@@ -27,8 +27,8 @@ impl RocksDBStore {
         key: &[u8],
         value: &[u8],
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        let res = self.db.put_cf(self.requires_cf_handle(), key, value)?;
-        Ok(res)
+        self.db.put_cf(self.requires_cf_handle(), key, value)?;
+        Ok(())
     }
 
     pub fn get_require(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Box<dyn Error + Sync + Send>> {

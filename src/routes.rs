@@ -1,12 +1,9 @@
-use crate::{config::*, rocksdb_store::RocksDBStore};
+use crate::{config::*, rocksdb_store::RocksDBStore, wait_cache::WaitCache};
 use rocket::{
     http::Status,
     request::FromParam,
     serde::json::Json,
-    tokio::{
-        task::spawn_blocking,
-        time::{sleep, Duration},
-    },
+    tokio::{task::spawn_blocking, time::Duration},
     State,
 };
 use serde::{Deserialize, Serialize};
@@ -38,9 +35,9 @@ pub struct Require {
     pub signature: String,
 }
 
-/// A require that is stored in the DB.
-#[derive(Serialize, Deserialize)]
-struct StoredRequire {
+// A require that is stored in the DB or in cache.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct StoredRequire {
     value: bool,
     signature: Vec<u8>,
 }
@@ -85,42 +82,48 @@ impl<'r> FromParam<'r> for Key {
 
 #[put("/require/<key>", data = "<require>")]
 pub async fn put_require(
-    state: &State<Arc<RocksDBStore>>,
+    db: &State<Arc<RocksDBStore>>,
+    cache: &State<Arc<WaitCache<Vec<u8>, StoredRequire>>>,
     key: Key,
     require: Json<Require>,
 ) -> Result<(), Status> {
     let stored_require = StoredRequire::try_from(require.0)?;
-    let stored_require = bincode_serialize(&stored_require)?;
-    let db = state.inner().clone();
-    spawn_blocking(move || db.put_require(&key.0, &stored_require))
+    let key_clone = key.0.clone();
+    let stored_require_bytes = bincode_serialize(&stored_require)?;
+    let db = db.inner().clone();
+    spawn_blocking(move || db.put_require(&key_clone, &stored_require_bytes))
         .await
         .map_err(|_| Status::ServiceUnavailable)?
         .map_err(|_| Status::InternalServerError)?;
+    cache.put(key.0, stored_require);
     Ok(())
 }
 
 #[get("/require/<key>")]
 pub async fn get_require(
     config: &State<Config>,
-    state: &State<Arc<RocksDBStore>>,
+    db: &State<Arc<RocksDBStore>>,
+    cache: &State<Arc<WaitCache<Vec<u8>, StoredRequire>>>,
     key: Key,
 ) -> Result<Json<Require>, Status> {
-    // 0 retries means 1 attempt and 0 retries.
-    let mut i = config.get_retry_count + 1;
-    while i > 0 {
-        let key = key.0.clone();
-        let db = state.inner().clone();
-        let value = spawn_blocking(move || db.get_require(&key))
-            .await
-            .map_err(|_| Status::ServiceUnavailable)?
-            .map_err(|_| Status::InternalServerError)?;
-        if let Some(value) = value {
-            let stored_require: StoredRequire = bincode_deserialize(&value)?;
-            return Ok(Json(Require::from(stored_require)));
-        } else {
-            sleep(Duration::from_millis(config.get_sleep_period_ms)).await;
-        }
-        i = i - 1;
+    let key_clone = key.0.clone();
+    let db = db.inner().clone();
+    let value = spawn_blocking(move || db.get_require(&key_clone))
+        .await
+        .map_err(|_| Status::ServiceUnavailable)?
+        .map_err(|_| Status::InternalServerError)?;
+    if let Some(value) = value {
+        let stored_require: StoredRequire = bincode_deserialize(&value)?;
+        Ok(Json(Require::from(stored_require)))
+    } else if let Some(stored_require) = cache
+        .get_timeout(
+            key.0,
+            Duration::from_millis(config.max_expected_oracle_delay_ms),
+        )
+        .await
+    {
+        Ok(Json(Require::from(stored_require)))
+    } else {
+        Err(Status::NotFound)
     }
-    Err(Status::NotFound)
 }
