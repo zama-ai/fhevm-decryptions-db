@@ -38,8 +38,7 @@ Validators (or anyone) can get a require value via an HTTP GET request.
 
 Example request:
 ```bash
-curl -v --header "Content-type: application/json" \
-    http://127.0.0.1:8001/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+curl -v http://127.0.0.1:8001/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 ```
 
 The resulting response has the same JSON format as for HTTP PUT:
@@ -60,9 +59,7 @@ The DB doesn't impose anything on the signature field other than it being valid 
 We use RocksDB as an underlying key-value store. We've chosen it, because it is battle-tested, performant, in-process, tweakable and supports concurrent calls from multiple threads. If needed, it can easily be replaced with another store.
 
 ## Note on Race Conditions Between Oracle and Non-Oracle Nodes
-Since the oracle is the only node that puts require results into the database and since all nodes (oracle and non-oracle ones) execute smart contract code at the same time, there is a race condition between the oracle putting a result and any other node reading it. Currently, the solution to this problem is to poll RocksDB on a GET request, until the result is available. The retry count and the sleep period between retries are configurable - please see more in the [Configuration](#configuration) section.
-
-A more optimal solution could be introduced in a future release.
+Since the oracle is the only node that puts require results into the database and since all nodes (oracle and non-oracle ones) execute smart contract code at the same time, there is a race condition between the oracle putting a result and any other node reading it. Currently, the solution to this problem is to use a `WaitCache` that keeps pending key-values in memory for a limited amount of time. Additionally, it allows a get request to wait until the requested key is put by the oracle.
 
 ## Build and Run
 ```bash
@@ -79,9 +76,7 @@ The following configuration options are currently supported:
 
 `db_path` - A path to the RocksDB database.
 
-`get_sleep_period_ms` - If a key is non-existent, time to sleep (in ms) before retrying again (applies to GET requests only).
-
-`get_retry_count` - How many times to retry before returning NotFound on GET requests (applies to GET requests only). Set to 0 to turn off retries and make 1 attempt only.
+`max_expected_oracle_delay_ms` - A validator might try to get a require that is not yet put by the oracle. This option configures the maximum time (in ms) that the oracle is expected to be late with the put operation.
 
 ## Testing
 Integration tests use a real RocksDB database. The database path is read from the `testing` profile in the configuration (Rocket.toml) file.

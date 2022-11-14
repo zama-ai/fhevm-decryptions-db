@@ -5,13 +5,10 @@ use serde::Deserialize;
 pub struct Config {
     pub db_path: String,
 
-    /// If a key is non-existent, time to sleep (in ms) before retrying again.
-    /// Applies to GET requests.
-    pub get_sleep_period_ms: u64,
-
-    /// How many times to retry before returning NotFound on GET requests only.
-    /// Set to 0 to turn off retries and make 1 attempt only.
-    pub get_retry_count: u64
+    /// A validator might try to get a require that is not yet put
+    /// by the oracle. This option configures the maximum time (in ms)
+    /// that the oracle is expected to be late with the put operation.
+    pub max_expected_oracle_delay_ms: u64,
 }
 
 impl Config {
