@@ -19,7 +19,7 @@ impl<K: Eq + Send + Sync + Hash + 'static, V: Clone + Sync + Send + 'static> Wai
 
     /// Put a key-value into the cache. Signals any readers blocked on `get_timeout()`.
     pub fn put(&self, key: K, value: V) {
-        self.cache.get_with(key, || AsyncCell::shared()).set(value);
+        self.cache.get_with(key, AsyncCell::shared).set(value);
     }
 
     /// Get a key-value from the cache.
@@ -27,9 +27,9 @@ impl<K: Eq + Send + Sync + Hash + 'static, V: Clone + Sync + Send + 'static> Wai
     /// If the key is not present at the time of the call,
     /// the returned future will resolve when the key becomes available.
     ///
-    /// If the key doesn't become available, after `timeout` duration has passed, None is returned.
+    /// If the key doesn't become available after `timeout` duration has passed, None is returned.
     pub async fn get_timeout(&self, key: K, timeout: Duration) -> Option<V> {
-        let cell = self.cache.get_with(key, || AsyncCell::shared());
+        let cell = self.cache.get_with(key, AsyncCell::shared);
         rocket::tokio::time::timeout(timeout, cell.get_shared())
             .await
             .ok()
@@ -63,7 +63,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn two_get_then_put() {
+    async fn two_gets_then_put() {
         let cache = WaitCache::<u64, u64>::new(Duration::from_secs(30));
         let key = 1;
         let value = 2;
