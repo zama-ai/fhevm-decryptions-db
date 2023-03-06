@@ -9,12 +9,14 @@
 
 name: Publish Oracle db service image
 
-on:
+on: 
   workflow_dispatch:
     inputs:
-      instance_id:
-        description: 'Instance ID'
+      oracle_db_service_tag:
+        description: 'Oracle DB service tag (default: latest)'
+        default: "latest"
         type: string
+        required: true
 
 jobs:
   push_to_registry:
@@ -37,5 +39,5 @@ jobs:
           context: .
           file: Dockerfile.testnet
           push: true
-          tags: v0.1
+          tags: ${{ env.DOCKER_IMAGE }}:${{ inputs.oracle_db_service_tag }},${{ env.DOCKER_IMAGE }}:latest
           labels: oracle-db-service
