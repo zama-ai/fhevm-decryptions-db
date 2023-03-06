@@ -23,6 +23,9 @@ on:
         default: "main"
         type: string
 
+env:
+  DOCKER_IMAGE: ghcr.io/zama-ai/oracle-db-service
+
 jobs:
   push_to_registry:
     name: Push Docker image to Aws ww
