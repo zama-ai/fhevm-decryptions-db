@@ -22,6 +22,11 @@ on:
         required: true
         default: "main"
         type: string
+      refToDockerfileOracleDb:
+        description: 'Branch, tag or commit SHA1 to checkout Oracle Db (Dockerfile)'
+        required: true
+        default: "main"
+        type: string
 
 env:
   DOCKER_IMAGE: ghcr.io/zama-ai/oracle-db-service
@@ -31,10 +36,16 @@ jobs:
     name: Push Docker image to Aws ww
     runs-on: ubuntu-latest
     steps:
-      - name: Check out the repo
+      - name: Check out the repo for build
         uses: actions/checkout@v3
         with:
+          path: oracledb
           ref: ${{ inputs.refToBuildOracleDb }}
+      - name: Check out the repo for build
+        uses: actions/checkout@v3
+        with:
+          path: oracledbDockerfile
+          ref: ${{ inputs.refToDockerfileOracleDb }}
       
       - name: Login to GitHub Container Registry
         uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
@@ -46,8 +57,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         with:
-          context: .
-          file: Dockerfile.testnet
+          context: ./oracledb
+          file: ./oracledbDockerfile/Dockerfile.testnet
           push: true
           tags: ${{ env.DOCKER_IMAGE }}:${{ inputs.oracle_db_service_tag }},${{ env.DOCKER_IMAGE }}:latest
           labels: oracle-db-service
