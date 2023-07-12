@@ -7,45 +7,45 @@
 # To get a newer version, you will need to update the SHA.
 # You can also reference a tag or branch, but the action may change without warning.
 
-name: Publish Oracle db service image
+name: Publish fhevm-requires-db image
 
 on: 
   workflow_dispatch:
     inputs:
-      oracle_db_service_tag:
-        description: 'Oracle DB service tag (default: latest)'
+      fhevm_requires_db_tag:
+        description: 'fhevm-requires-db tag (default: latest)'
         default: "latest"
         type: string
         required: true
-      refToBuildOracleDb:
-        description: 'Branch, tag or commit SHA1 to checkout Oracle Db'
+      refToBuildFhevmRequiresDb:
+        description: 'Branch, tag or commit SHA1 to checkout fhevm-requires-db'
         required: true
         default: "main"
         type: string
-      refToDockerfileOracleDb:
-        description: 'Branch, tag or commit SHA1 to checkout Oracle Db (Dockerfile)'
+      refToDockerfileFhevmRequiresDb:
+        description: 'Branch, tag or commit SHA1 to checkout fhevm-requires-db (Dockerfile)'
         required: true
         default: "main"
         type: string
 
 env:
-  DOCKER_IMAGE: ghcr.io/zama-ai/oracle-db-service
+  DOCKER_IMAGE: ghcr.io/zama-ai/fhevm-requires-db
 
 jobs:
   push_to_registry:
-    name: Push Docker image to Aws ww
+    name: Push Docker image to GitHub Container Registry
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo for build
         uses: actions/checkout@v3
         with:
-          path: oracledb
-          ref: ${{ inputs.refToBuildOracleDb }}
+          path: fhevm-requires-db
+          ref: ${{ inputs.refToBuildFhevmRequiresDb }}
       - name: Check out the repo for build
         uses: actions/checkout@v3
         with:
-          path: oracledbDockerfile
-          ref: ${{ inputs.refToDockerfileOracleDb }}
+          path: fhevm-requires-db-dockerfile
+          ref: ${{ inputs.refToDockerfileFhevmRequiresDb }}
       
       - name: Login to GitHub Container Registry
         uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
@@ -57,8 +57,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         with:
-          context: ./oracledb
-          file: ./oracledbDockerfile/Dockerfile.testnet
+          context: ./fhevm-requires-db
+          file: ./fhevm-requires-db-dockerfile/Dockerfile
           push: true
-          tags: ${{ env.DOCKER_IMAGE }}:${{ inputs.oracle_db_service_tag }},${{ env.DOCKER_IMAGE }}:latest
-          labels: oracle-db-service
+          tags: ${{ env.DOCKER_IMAGE }}:${{ inputs.fhevm_requires_db_tag }},${{ env.DOCKER_IMAGE }}:latest
+          labels: fhevm-requires-db

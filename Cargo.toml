@@ -1,5 +1,5 @@
 [package]
-name = "zbc-oracle-db"
+name = "fhevm-requires-db"
 version = "0.1.0"
 edition = "2021"
 
