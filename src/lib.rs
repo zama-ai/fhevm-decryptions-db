@@ -1,3 +1,8 @@
+// BSD 3-Clause Clear License
+
+// Copyright © 2023 ZAMA.
+// All rights reserved.
+
 #[macro_use]
 extern crate rocket;
 

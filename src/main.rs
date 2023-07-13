@@ -1,7 +1,12 @@
+// BSD 3-Clause Clear License
+
+// Copyright © 2023 ZAMA.
+// All rights reserved.
+
 #[macro_use]
 extern crate rocket;
 
-use zbc_oracle_db::build_and_configure_rocket;
+use fhevm_requires_db::build_and_configure_rocket;
 
 #[launch]
 fn rocket() -> _ {

@@ -1,3 +1,8 @@
+// BSD 3-Clause Clear License
+
+// Copyright © 2023 ZAMA.
+// All rights reserved.
+
 use crate::{config::*, rocksdb_store::RocksDBStore, wait_cache::WaitCache};
 use rocket::{
     http::Status,
