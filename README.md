@@ -61,9 +61,16 @@ We use RocksDB as an underlying key-value store. We've chosen it, because it is 
 Since the oracle is the only node that puts require results into the database and since all nodes (oracle and non-oracle ones) execute smart contract code at the same time, there is a race condition between the oracle putting a result and any other node reading it. Currently, the solution to this problem is to use a `WaitCache` that keeps pending key-values in memory for a limited period of time. Additionally, it allows a get request to wait until the requested key is put by the oracle.
 
 ## Build and Run
+### Local
 ```bash
 cargo build --release
 cargo run --release
+```
+
+### Docker
+```bash
+docker build -t fhevm-requires-db:latest .
+docker run -d -p 8001:8001 fhevm-requires-db:latest
 ```
 
 ## Configuration
