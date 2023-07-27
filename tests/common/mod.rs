@@ -6,7 +6,7 @@
 use std::{fs::remove_dir_all, path::Path};
 
 use rocket::local::blocking::Client;
-use fhevm_requires_db::{build_rocket, config::Config, configure_rocket};
+use fhevm_decryptions_db::{build_rocket, config::Config, configure_rocket};
 
 fn clean_db(path: &str) {
     match remove_dir_all(path) {

@@ -34,13 +34,13 @@ pub fn configure_rocket(rocket: Rocket<Build>) -> Rocket<Build> {
 
     let config: Config = figment.extract().expect("config");
     let db = Arc::new(RocksDBStore::open(&config.db_path).expect("db open"));
-    let cache = Arc::new(WaitCache::<Vec<u8>, StoredRequire>::new(
+    let cache = Arc::new(WaitCache::<Vec<u8>, StoredDecryption>::new(
         Duration::from_secs(config.max_expected_oracle_delay_ms),
     ));
 
     rocket
         .manage(db)
         .manage(cache)
-        .mount("/", routes![put_require, get_require])
+        .mount("/", routes![put_decryption, get_decryption])
         .attach(AdHoc::config::<Config>())
 }

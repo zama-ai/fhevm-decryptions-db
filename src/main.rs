@@ -6,7 +6,7 @@
 #[macro_use]
 extern crate rocket;
 
-use fhevm_requires_db::build_and_configure_rocket;
+use fhevm_decryptions_db::build_and_configure_rocket;
 
 #[launch]
 fn rocket() -> _ {
