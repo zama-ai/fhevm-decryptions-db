@@ -33,6 +33,7 @@ curl -v --header "Content-type: application/json" --request PUT \
   http://127.0.0.1:8001/decryption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 ```
 
+### HTTP GET
 Anyone can get a decrypted value via an HTTP GET request.
 
 Example request:
