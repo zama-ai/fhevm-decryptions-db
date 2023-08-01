@@ -10,9 +10,9 @@ use serde::Deserialize;
 pub struct Config {
     pub db_path: String,
 
-    /// A validator might try to get a require that is not yet put
-    /// by the oracle. This option configures the maximum time (in ms)
-    /// that the oracle is expected to be late with the put operation.
+    /// A validator might try to get a decryption that is not yet put
+    /// by an oracle. This option configures the maximum time (in ms)
+    /// that oracles are expected to be late with the put operation.
     pub max_expected_oracle_delay_ms: u64,
 }
 

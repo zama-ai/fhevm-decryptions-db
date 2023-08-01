@@ -421,7 +421,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fhevm-requires-db"
+name = "fhevm-decryptions-db"
 version = "0.1.0"
 dependencies = [
  "async_cell",

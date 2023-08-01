@@ -33,37 +33,37 @@ fn bincode_deserialize<'a, T: Deserialize<'a>>(input: &'a [u8]) -> Result<T, Sta
     bincode::deserialize(input).map_err(|_| Status::InternalServerError)
 }
 
-/// A require that is received/sent as JSON over HTTP.
+/// A decryption that is received/sent as JSON over HTTP.
 #[derive(Serialize, Deserialize)]
-pub struct Require {
-    pub value: bool,
+pub struct Decryption {
+    pub value: u64,
     pub signature: String,
 }
 
-// A require that is stored in the DB or in cache.
+// A decryption that is stored in the DB or in cache.
 #[derive(Clone, Serialize, Deserialize)]
-pub struct StoredRequire {
-    value: bool,
+pub struct StoredDecryption {
+    value: u64,
     signature: Vec<u8>,
 }
 
-impl TryFrom<Require> for StoredRequire {
+impl TryFrom<Decryption> for StoredDecryption {
     type Error = Status;
 
-    fn try_from(require: Require) -> Result<Self, Self::Error> {
-        let signature = base64_decode(&require.signature)?;
-        Ok(StoredRequire {
-            value: require.value,
+    fn try_from(decryption: Decryption) -> Result<Self, Self::Error> {
+        let signature = base64_decode(&decryption.signature)?;
+        Ok(StoredDecryption {
+            value: decryption.value,
             signature,
         })
     }
 }
 
-impl From<StoredRequire> for Require {
-    fn from(stored_require: StoredRequire) -> Require {
-        Require {
-            value: stored_require.value,
-            signature: base64::encode(stored_require.signature),
+impl From<StoredDecryption> for Decryption {
+    fn from(stored_decryption: StoredDecryption) -> Decryption {
+        Decryption {
+            value: stored_decryption.value,
+            signature: base64::encode(stored_decryption.signature),
         }
     }
 }
@@ -85,49 +85,49 @@ impl<'r> FromParam<'r> for Key {
     }
 }
 
-#[put("/require/<key>", data = "<require>")]
-pub async fn put_require(
+#[put("/decryption/<key>", data = "<decryption>")]
+pub async fn put_decryption(
     db: &State<Arc<RocksDBStore>>,
-    cache: &State<Arc<WaitCache<Vec<u8>, StoredRequire>>>,
+    cache: &State<Arc<WaitCache<Vec<u8>, StoredDecryption>>>,
     key: Key,
-    require: Json<Require>,
+    decryption: Json<Decryption>,
 ) -> Result<(), Status> {
-    let stored_require = StoredRequire::try_from(require.0)?;
+    let stored_decryption = StoredDecryption::try_from(decryption.0)?;
     let key_clone = key.0.clone();
-    let stored_require_bytes = bincode_serialize(&stored_require)?;
+    let stored_decryption_bytes = bincode_serialize(&stored_decryption)?;
     let db = db.inner().clone();
-    spawn_blocking(move || db.put_require(&key_clone, &stored_require_bytes))
+    spawn_blocking(move || db.put_decryption(&key_clone, &stored_decryption_bytes))
         .await
         .map_err(|_| Status::ServiceUnavailable)?
         .map_err(|_| Status::InternalServerError)?;
-    cache.put(key.0, stored_require);
+    cache.put(key.0, stored_decryption);
     Ok(())
 }
 
-#[get("/require/<key>")]
-pub async fn get_require(
+#[get("/decryption/<key>")]
+pub async fn get_decryption(
     config: &State<Config>,
     db: &State<Arc<RocksDBStore>>,
-    cache: &State<Arc<WaitCache<Vec<u8>, StoredRequire>>>,
+    cache: &State<Arc<WaitCache<Vec<u8>, StoredDecryption>>>,
     key: Key,
-) -> Result<Json<Require>, Status> {
+) -> Result<Json<Decryption>, Status> {
     let key_clone = key.0.clone();
     let db = db.inner().clone();
-    let value = spawn_blocking(move || db.get_require(&key_clone))
+    let value = spawn_blocking(move || db.get_decryption(&key_clone))
         .await
         .map_err(|_| Status::ServiceUnavailable)?
         .map_err(|_| Status::InternalServerError)?;
     if let Some(value) = value {
-        let stored_require: StoredRequire = bincode_deserialize(&value)?;
-        Ok(Json(Require::from(stored_require)))
-    } else if let Some(stored_require) = cache
+        let stored_decryption: StoredDecryption = bincode_deserialize(&value)?;
+        Ok(Json(Decryption::from(stored_decryption)))
+    } else if let Some(stored_decryption) = cache
         .get_timeout(
             key.0,
             Duration::from_millis(config.max_expected_oracle_delay_ms),
         )
         .await
     {
-        Ok(Json(Require::from(stored_require)))
+        Ok(Json(Decryption::from(stored_decryption)))
     } else {
         Err(Status::NotFound)
     }

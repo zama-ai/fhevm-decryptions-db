@@ -3,7 +3,7 @@
 // Copyright © 2023 ZAMA.
 // All rights reserved.
 
-use fhevm_requires_db::routes::Require;
+use fhevm_decryptions_db::routes::Decryption;
 use rocket::http::{ContentType, Status};
 use serde_json;
 
@@ -28,7 +28,7 @@ fn put_invalid_route() {
 #[test]
 fn get_invalid_key_size() {
     let client = setup();
-    let response = client.get("/require/ab").dispatch();
+    let response = client.get("/decryption/ab").dispatch();
     assert_eq!(response.status(), Status::NotFound);
 }
 
@@ -36,7 +36,7 @@ fn get_invalid_key_size() {
 fn get_invalid_key_format() {
     let client = setup();
     let response = client
-        .get("/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaXaaaa")
+        .get("/decryption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaXaaaa")
         .dispatch();
     assert_eq!(response.status(), Status::NotFound);
 }
@@ -45,7 +45,7 @@ fn get_invalid_key_format() {
 fn get_unknown_key() {
     let client = setup();
     let response = client
-        .get("/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        .get("/decryption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
         .dispatch();
     assert_eq!(response.status(), Status::NotFound);
 }
@@ -54,10 +54,10 @@ fn get_unknown_key() {
 fn put_and_get_success() {
     let client = setup();
     let json = r##"{
-                "value": true,
+                "value": 42,
                 "signature": "YmJiYg=="
               }"##;
-    let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let uri = "/decryption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     let response = client
         .put(uri)
@@ -72,21 +72,21 @@ fn put_and_get_success() {
     let body = response.into_string();
     assert!(body.is_some());
     let body = body.unwrap();
-    let require: Result<Require, _> = serde_json::from_str(&body);
-    assert!(require.is_ok());
-    let require = require.unwrap();
-    assert!(require.value);
-    assert_eq!(require.signature, "YmJiYg==");
+    let decryption: Result<Decryption, _> = serde_json::from_str(&body);
+    assert!(decryption.is_ok());
+    let decryption = decryption.unwrap();
+    assert_eq!(decryption.value, 42);
+    assert_eq!(decryption.signature, "YmJiYg==");
 }
 
 #[test]
 fn put_updates() {
     let client = setup();
     let json = r##"{
-                "value": true,
+                "value": 42,
                 "signature": "YmJiYg=="
               }"##;
-    let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let uri = "/decryption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     let response = client
         .put(uri)
@@ -101,14 +101,14 @@ fn put_updates() {
     let body = response.into_string();
     assert!(body.is_some());
     let body = body.unwrap();
-    let require: Result<Require, _> = serde_json::from_str(&body);
-    assert!(require.is_ok());
-    let require = require.unwrap();
-    assert!(require.value);
-    assert_eq!(require.signature, "YmJiYg==");
+    let decryption: Result<Decryption, _> = serde_json::from_str(&body);
+    assert!(decryption.is_ok());
+    let decryption = decryption.unwrap();
+    assert_eq!(decryption.value, 42);
+    assert_eq!(decryption.signature, "YmJiYg==");
 
     let json = r##"{
-            "value": false,
+            "value": 77,
             "signature": "Yg=="
           }"##;
     let response = client
@@ -124,21 +124,21 @@ fn put_updates() {
     let body = response.into_string();
     assert!(body.is_some());
     let body = body.unwrap();
-    let require: Result<Require, _> = serde_json::from_str(&body);
-    assert!(require.is_ok());
-    let require = require.unwrap();
-    assert!(!require.value);
-    assert_eq!(require.signature, "Yg==");
+    let decryption: Result<Decryption, _> = serde_json::from_str(&body);
+    assert!(decryption.is_ok());
+    let decryption = decryption.unwrap();
+    assert_eq!(decryption.value, 77);
+    assert_eq!(decryption.signature, "Yg==");
 }
 
 #[test]
 fn put_invalid_does_not_update() {
     let client = setup();
     let json = r##"{
-                "value": true,
+                "value": 42,
                 "signature": "YmJiYg=="
               }"##;
-    let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let uri = "/decryption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     let response = client
         .put(uri)
@@ -148,7 +148,7 @@ fn put_invalid_does_not_update() {
     assert_eq!(response.status(), Status::Ok);
 
     let json = r##"{
-            "value" false,
+            "value" 78,
             "signature" "Yg=="
           }"##;
     let response = client
@@ -164,21 +164,21 @@ fn put_invalid_does_not_update() {
     let body = response.into_string();
     assert!(body.is_some());
     let body = body.unwrap();
-    let require: Result<Require, _> = serde_json::from_str(&body);
-    assert!(require.is_ok());
-    let require = require.unwrap();
-    assert!(require.value);
-    assert_eq!(require.signature, "YmJiYg==");
+    let decryption: Result<Decryption, _> = serde_json::from_str(&body);
+    assert!(decryption.is_ok());
+    let decryption = decryption.unwrap();
+    assert_eq!(decryption.value, 42);
+    assert_eq!(decryption.signature, "YmJiYg==");
 }
 
 #[test]
 fn put_invalid_json() {
     let client = setup();
     let json = r##"{
-                "value" true
+                "value" 79
                 "signature": "mJiYg=="
               }"##;
-    let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let uri = "/decryption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     let response = client
         .put(uri)
@@ -192,10 +192,10 @@ fn put_invalid_json() {
 fn put_invalid_signature() {
     let client = setup();
     let json = r##"{
-                "value": true,
+                "value": 11,
                 "signature": "YmJiY"
               }"##;
-    let uri = "/require/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let uri = "/decryption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     let response = client
         .put(uri)

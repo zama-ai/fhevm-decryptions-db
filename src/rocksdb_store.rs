@@ -17,37 +17,41 @@ pub struct RocksDBStore {
 
 impl RocksDBStore {
     pub fn open(path: &str) -> Result<Self, Box<dyn Error>> {
-        let requires_cf_desc = ColumnFamilyDescriptor::new(Self::REQUIRES_CF, Options::default());
+        let decryptions_cf_desc =
+            ColumnFamilyDescriptor::new(Self::DECRYPTIONS_CF, Options::default());
 
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         db_opts.create_missing_column_families(true);
 
-        let db = DB::open_cf_descriptors(&db_opts, path, vec![requires_cf_desc])?;
+        let db = DB::open_cf_descriptors(&db_opts, path, vec![decryptions_cf_desc])?;
         Ok(RocksDBStore { db })
     }
 
-    pub fn put_require(
+    pub fn put_decryption(
         &self,
         key: &[u8],
         value: &[u8],
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
-        self.db.put_cf(self.requires_cf_handle(), key, value)?;
+        self.db.put_cf(self.decryptions_cf_handle(), key, value)?;
         Ok(())
     }
 
-    pub fn get_require(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Box<dyn Error + Sync + Send>> {
-        let res = self.db.get_cf(self.requires_cf_handle(), key)?;
+    pub fn get_decryption(
+        &self,
+        key: &[u8],
+    ) -> Result<Option<Vec<u8>>, Box<dyn Error + Sync + Send>> {
+        let res = self.db.get_cf(self.decryptions_cf_handle(), key)?;
         Ok(res)
     }
 }
 
 impl RocksDBStore {
-    const REQUIRES_CF: &'static str = "requires";
+    const DECRYPTIONS_CF: &'static str = "decryptions";
 
-    fn requires_cf_handle(&self) -> &ColumnFamily {
+    fn decryptions_cf_handle(&self) -> &ColumnFamily {
         self.db
-            .cf_handle(Self::REQUIRES_CF)
-            .expect("requires CF handle")
+            .cf_handle(Self::DECRYPTIONS_CF)
+            .expect("decryptions CF handle")
     }
 }
